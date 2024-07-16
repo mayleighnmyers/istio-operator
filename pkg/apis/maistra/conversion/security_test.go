@@ -1034,3 +1034,81 @@ func TestSecurityConversionFromV2ToV1(t *testing.T) {
 		})
 	}
 }
+
+type multiClusterTestCase struct {
+	name               string
+	spec               *v2.ControlPlaneSpec
+	expectedHelmValues v1.HelmValues
+}
+
+var multiClusterTestCases = []multiClusterTestCase{
+
+	{
+		name: "MultiCluster_v2_4",
+		spec: &v2.ControlPlaneSpec{
+			Version: versions.V2_4.String(),
+			Security: &v2.SecurityConfig{
+				CertificateAuthority: &v2.CertificateAuthorityConfig{
+					Type: v2.CertificateAuthorityTypeCertManager,
+					CertManager: &v2.CertManagerCertificateAuthorityConfig{
+						Address: "",
+					},
+				},
+			},
+		},
+		expectedHelmValues: buildHelmValues(`
+\tuseILB: false
+global:
+  caAddress: 
+meshExpansion:
+  enabled: false
+useILB: false
+multiCluster: 
+      enabled: false
+multiClusterOverrides:
+  expansionEnabled:
+multiClusterEnabled:
+meshExpansion:
+  enabled: false
+multiCluster:
+  enabled: false
+multiClusterEnabled:
+multiClusterOverrides:
+  expansionEnabled:
+spec:
+  cluster:
+    multiCluster:
+      enabled: true
+  gateways:
+    enabled: false
+	useILB: false
+`),
+	},
+}
+
+func TestMultiClusterGatewaysDisabled(t *testing.T) {
+	for _, tc := range multiClusterTestCases {
+		t.Run(tc.name+"-v2_to_v1", func(t *testing.T) {
+			var specV1 v1.ControlPlaneSpec
+			if err := Convert_v2_ControlPlaneSpec_To_v1_ControlPlaneSpec(tc.spec.DeepCopy(), &specV1, nil); err != nil {
+				t.Errorf("failed to convert SMCP v2 to v1: %s", err)
+			}
+
+			if !reflect.DeepEqual(tc.expectedHelmValues.DeepCopy(), specV1.Istio.DeepCopy()) {
+				t.Errorf("unexpected output converting v2 to values:\n\texpected:\n%#v\n\tgot:\n%#v", tc.expectedHelmValues.GetContent(), specV1.Istio.GetContent())
+			}
+		})
+
+		t.Run(tc.name+"-v1_to_v2", func(t *testing.T) {
+			specV1 := v1.ControlPlaneSpec{
+				Istio: tc.expectedHelmValues.DeepCopy(),
+			}
+			specV2 := v2.ControlPlaneSpec{}
+			if err := Convert_v1_ControlPlaneSpec_To_v2_ControlPlaneSpec(&specV1, &specV2, nil); err != nil {
+				t.Errorf("failed to convert SMCP v1 to v2: %s", err)
+			}
+
+			assertEquals(t, tc.spec.Security, specV2.Security)
+		})
+	}
+}
