@@ -1042,7 +1042,6 @@ type multiClusterTestCase struct {
 }
 
 var multiClusterTestCases = []multiClusterTestCase{
-
 	{
 		name: "MultiCluster_v2_4",
 		spec: &v2.ControlPlaneSpec{
@@ -1057,14 +1056,13 @@ var multiClusterTestCases = []multiClusterTestCase{
 			},
 		},
 		expectedHelmValues: buildHelmValues(`
-\tuseILB: false
 global:
   caAddress: 
 meshExpansion:
   enabled: false
 useILB: false
 multiCluster: 
-      enabled: false
+  enabled: false
 multiClusterOverrides:
   expansionEnabled:
 multiClusterEnabled:
@@ -1081,7 +1079,7 @@ spec:
       enabled: true
   gateways:
     enabled: false
-	useILB: false
+    useILB: false
 `),
 	},
 }

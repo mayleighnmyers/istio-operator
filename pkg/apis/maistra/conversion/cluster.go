@@ -2,7 +2,6 @@ package conversion
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,8 +17,6 @@ const (
 
 	clusterDomainDefault = "cluster.local"
 )
-
-var externalRequestedNetworkRegex = regexp.MustCompile("(^|,)external(,|$)")
 
 // populateClusterValues popluates values.yaml specific to clustering.  this
 // function will also update fields in other settings that are related to

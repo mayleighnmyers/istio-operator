@@ -12,8 +12,6 @@ import (
 	// "github.com/maistra/istio-operator/pkg/controller/versions"
 )
 
-const clusterTestNamespace = "cp-namespace"
-
 var clusterTestCases []conversionTestCase
 
 func TestClusterConversionFromV2(t *testing.T) {
