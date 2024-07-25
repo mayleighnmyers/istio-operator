@@ -269,7 +269,7 @@ func mergeMaps(source, target map[string]interface{}) {
 				if valmap, ok := val.(map[string]interface{}); ok {
 					mergeMaps(valmap, targetmap)
 					continue
-				} else if val == nil {
+				} else if valmap == nil {
 					delete(target, key)
 					continue
 				} else {
