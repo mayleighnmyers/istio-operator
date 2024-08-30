@@ -1046,40 +1046,27 @@ var multiClusterTestCases = []multiClusterTestCase{
 		name: "MultiCluster_v2_4",
 		spec: &v2.ControlPlaneSpec{
 			Version: versions.V2_4.String(),
-			Security: &v2.SecurityConfig{
-				CertificateAuthority: &v2.CertificateAuthorityConfig{
-					Type: v2.CertificateAuthorityTypeCertManager,
-					CertManager: &v2.CertManagerCertificateAuthorityConfig{
-						Address: "",
+			Cluster: &v2.ControlPlaneClusterConfig{
+				Name:    "my-cluster",
+				Network: "my-network",
+				MultiCluster: &v2.MultiClusterConfig{
+					Enablement: v2.Enablement{
+						Enabled: &featureEnabled,
 					},
+				},
+			},
+			Gateways: &v2.GatewaysConfig{
+				Enablement: v2.Enablement{
+					Enabled: &featureDisabled,
 				},
 			},
 		},
 		expectedHelmValues: buildHelmValues(`
 global:
-  caAddress: 
-meshExpansion:
+  multiCluster:
+    enabled: true
+gateways:
   enabled: false
-useILB: false
-multiCluster: 
-  enabled: false
-multiClusterOverrides:
-  expansionEnabled:
-multiClusterEnabled:
-meshExpansion:
-  enabled: false
-multiCluster:
-  enabled: false
-multiClusterEnabled:
-multiClusterOverrides:
-  expansionEnabled:
-spec:
-  cluster:
-    multiCluster:
-      enabled: true
-  gateways:
-    enabled: false
-    useILB: false
 `),
 	},
 }
@@ -1106,7 +1093,8 @@ func TestMultiClusterGatewaysDisabled(t *testing.T) {
 				t.Errorf("failed to convert SMCP v1 to v2: %s", err)
 			}
 
-			assertEquals(t, tc.spec.Security, specV2.Security)
+			assertEquals(t, tc.spec.Cluster, specV2.Cluster)
+			assertEquals(t, tc.spec.Gateways, specV2.Gateways)
 		})
 	}
 }
