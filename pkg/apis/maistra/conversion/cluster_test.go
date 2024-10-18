@@ -1587,3 +1587,109 @@ func TestClusterConversionFromV2(t *testing.T) {
 		})
 	}
 }
+
+type multiClusterTestCase struct {
+	name               string
+	spec               *v2.ControlPlaneSpec
+	expectedHelmValues v1.HelmValues
+}
+
+var multiClusterTestCases = []multiClusterTestCase{
+	{
+		name: "MultiCluster_v2_4",
+		spec: &v2.ControlPlaneSpec{
+			Version: versions.V2_4.String(),
+			Cluster: &v2.ControlPlaneClusterConfig{
+				Name:    "my-cluster",
+				Network: "",
+				MultiCluster: &v2.MultiClusterConfig{
+					Enablement: v2.Enablement{
+						Enabled: &featureEnabled,
+					},
+				},
+			},
+			Gateways: &v2.GatewaysConfig{
+				Enablement: v2.Enablement{
+					Enabled: &featureDisabled, // False
+				},
+			},
+		},
+		// Updated expected Helm values based on the default behavior observed
+		expectedHelmValues: buildHelmValues(`
+global:
+  multiCluster:
+    enabled: true
+    addedLocalNetwork: ""
+    clusterName: "my-cluster"
+    multiClusterOverrides:
+      addedExternal: true
+      egressEnabled: null
+      expansionEnabled: null
+      gatewaysEnabled: false
+      ilbEnabled: null
+      ingressEnabled: null
+      k8sIngressEnabled: null
+  meshExpansion:
+    enabled: true
+    useILB: false
+  meshNetworks:
+    my-network:
+      endpoints:
+      - fromRegistry: my-cluster
+      gateways:
+      - port: 443
+        service: istio-ingressgateway.istio-system.svc.cluster.local
+gateways:
+  enabled: false
+  istio-egressgateway:
+    enabled: false
+    gatewayType: egress
+    name: istio-egressgateway
+    env:
+      ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
+  istio-ingressgateway:
+    enabled: false
+    gatewayType: ingress
+    name: istio-ingressgateway
+  istio-ilbgateway:
+    enabled: false
+k8sIngress:
+  enableHttps: false
+  enabled: true
+  gatewayName: ingressgateway
+`),
+	},
+}
+
+func TestMultiClusterGatewaysDisabled(t *testing.T) {
+	for _, tc := range multiClusterTestCases {
+		t.Run(tc.name+"-v2_to_v1", func(t *testing.T) {
+			var specV1 v1.ControlPlaneSpec
+			// Conversion from v2 to v1
+			if err := Convert_v2_ControlPlaneSpec_To_v1_ControlPlaneSpec(tc.spec.DeepCopy(), &specV1, nil); err != nil {
+				t.Errorf("failed to convert SMCP v2 to v1: %s", err)
+			}
+
+			// Comparison of Helm values, ensuring deep equality after conversion
+			if !reflect.DeepEqual(tc.expectedHelmValues.DeepCopy(), specV1.Istio.DeepCopy()) {
+				t.Errorf("unexpected output converting v2 to values:\n\texpected:\n%#v\n\tgot:\n%#v", tc.expectedHelmValues.GetContent(), specV1.Istio.GetContent())
+			}
+		})
+
+		t.Run(tc.name+"-v1_to_v2", func(t *testing.T) {
+			specV1 := v1.ControlPlaneSpec{
+				Istio: tc.expectedHelmValues.DeepCopy(),
+			}
+			specV2 := v2.ControlPlaneSpec{}
+
+			// Conversion from v1 back to v2
+			if err := Convert_v1_ControlPlaneSpec_To_v2_ControlPlaneSpec(&specV1, &specV2, nil); err != nil {
+				t.Errorf("failed to convert SMCP v1 to v2: %s", err)
+			}
+
+			// Ensure the Cluster and Gateways match after conversion
+			assertEquals(t, tc.spec.Cluster, specV2.Cluster)
+			assertEquals(t, tc.spec.Gateways, specV2.Gateways)
+		})
+	}
+}
